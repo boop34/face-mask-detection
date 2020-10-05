@@ -3,7 +3,6 @@
 import requests
 import argparse
 import glob
-from time import sleep
 import os
 
 # some colors to make the output pretty
@@ -53,7 +52,7 @@ fname = 0
 while glob.glob(os.path.sep.join([outputDir, f'{str(fname).zfill(8)}.*'])):
     fname += 1
 
-#page count
+# page count starting from 1
 page = 1
 
 print(f'{HEADER}[INFO] Searching unsplash for "{args.query}"...{ENDC}')
