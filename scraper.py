@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from concurrent.futures import ThreadPoolExecutor
 import requests
 import argparse
 import glob
@@ -60,6 +61,9 @@ if not os.path.exists(outputDir):
 # file name
 fname = 0
 
+# initializing fail counter to detect how many images could not be saved
+failCount = 0
+
 # check if file with same name already exists, if so then increment
 while glob.glob(os.path.sep.join([outputDir, f'{str(fname).zfill(8)}.*'])):
     fname += 1
@@ -71,7 +75,68 @@ page = 1
 if args.verbose:
     print(f'{HEADER}[INFO] Searching unsplash for "{args.query}"...{ENDC}')
 
+def downloadImage(data):
+    '''
+    data -> (imageUrl, filePath)
+    download image from the given imageUrl and save the image into filePath
+    '''
+    # unpacking data tuple
+    imageUrl, filePath = data
+
+    # trying to fetch the image and save it to the file
+    try:
+        # getting the response after fetching the url
+        response = requests.get(imageUrl, timeout=30)
+
+        # writing the image data into the file name
+        with open(filePath, 'wb') as f:
+            f.write(response.content)
+    # handling exception
+    except Exception as e:
+        # check if a timeout has occured
+        if isinstance(e, requests.exceptions.Timeout):
+            print(f'{FAIL}[FAIL] request timed out{ENDC}')
+        else:
+            # error while saving the file
+            print(f'{FAIL}[FAIL] error saving {filePath}{ENDC}')
+
+        # skip that file if error occured
+        print(f'{WARNING}[WARNING] skipping the fie {filepath}{ENDC}')
+
+        # unsuccessfull attempt
+        return False
+
+    # successfull attempt
+    return True
+
+
+def printDebugInfo(dataList, **kwargs):
+    '''
+    args -> list of tuples of imageUrl, filePath
+    kwargs -> mode -> fetch, save
+              err  -> to evaluate if a file was saved successfully
+    print debug information like the url being fetched or the filename where
+    the image is being saved
+    '''
+    for idx, (imageUrl, filePath) in enumerate(dataList):
+        if kwargs['mode'] == 'fetch':
+            print(f"{OKBLUE}[INFO] fetching {imageUrl}{ENDC}")
+        elif kwargs['mode'] == 'save' and kwargs['err'][idx]:
+            print(f'{OKGREEN}[INFO] saving image to {filePath}{ENDC}')
+        else:
+            raise Exception('Use correct parameters')
+            # Unsuccessfull
+            return False
+
+    # Successfull
+    return True
+
+
 while imageCounter > 0:
+    # create a empty list to store the required data of a page
+    # for multithreading
+    dataList = []
+
     # generating url
     searchUrl = url + str(page)
     # parsing the url content
@@ -84,41 +149,46 @@ while imageCounter > 0:
         # generating filepath to save the image
         filePath = os.path.sep.join([outputDir,
                                      f'{str(fname).zfill(8)}.jpeg'])
-        # debug information print if verbose option given
         imageUrl = images['urls'][args.resolution]
-        if args.verbose:
-            print(f"{OKBLUE}[INFO] fetching {imageUrl}{ENDC}")
-        try:
-            response = requests.get(imageUrl, timeout=30)
-            with open(filePath, 'wb') as f:
-                f.write(response.content)
 
-            # saved the image to the determined filename if verbose on
-            if args.verbose:
-                print(f'{OKGREEN}[INFO] saving image to {filePath}{ENDC}')
-        except Exception as e:
-            # check if a timeout has occured
-            if isinstance(e, requests.exceptions.Timeout):
-                print(f'{FAIL}[FAIL] request timed out{ENDC}')
-            else:
-                # error while saving the file
-                print(f'{FAIL}[FAIL] error saving {filePath}{ENDC}')
-
-            # skip that file if error occured
-            print(f'{WARNING}[WARNING] skipping the fie {filepath}{ENDC}')
-            continue
+        # adding the image url and file path to the list for multithreading
+        dataList.append((imageUrl, filePath))
 
         # detrecemting the image counter
         imageCounter -= 1
-        # incrementing the filename
+        # increamenting the file name
         fname += 1
+
+        # check if file with same name already exists, if so then increment
+        while glob.glob(os.path.sep.join([outputDir,
+                                          f'{str(fname).zfill(8)}.*'])):
+            fname += 1
 
         # break if the counter limit is reached
         if imageCounter == 0:
             break
 
+    # print debug info if verbose option given
+    if args.verbose:
+        printDebugInfo(dataList, mode='fetch')
+
+    # Using multithreading to maximize IO bound download operation
+    result = []
+    with ThreadPoolExecutor() as executor:
+        result = list(executor.map(downloadImage, dataList))
+
+    # increment the fail counter if any
+    failCount += len(dataList) - len(list(filter(None, list(result))))
+
+    # print saved the image to the determined filename if verbose on
+    if args.verbose:
+        printDebugInfo(dataList, mode='save', err=list(result))
+
+    # increamenting the page value to get the contents of the next page
     page += 1
 
-# print if verbose option availabl
+# print if verbose option available
 if args.verbose:
-    print(f'{HEADER}[INFO] finished downloading {args.imgCount} images{ENDC}')
+    print(f'{HEADER}[INFO] finished downloading images{ENDC}')
+    print(f'{OKGREEN}Successfull: {args.imgCount - failCount}{ENDC}')
+    print(f'{FAIL}Unsuccessfull: {failCount}{ENDC}')
