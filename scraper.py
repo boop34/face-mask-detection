@@ -22,7 +22,8 @@ ap = argparse.ArgumentParser(description='Scraping images from unsplash.com')
 ap.add_argument('-q', '--query', required=True,
                 help='query to search images from unsplash.com')
 ap.add_argument('-ic', '--imgCount', default=50, type=int,
-                help='maximum number of images to be downloaded[default: 50]')
+                help='maximum number of images to be downloaded \
+                [default: 50]')
 ap.add_argument('-o', '--output', default=os.getcwd(),
                 help='path to store the downloaded images')
 ap.add_argument('-v', '--verbose', help='get a more verbos output',
@@ -30,6 +31,9 @@ ap.add_argument('-v', '--verbose', help='get a more verbos output',
 ap.add_argument('-res', '--resolution', default='regular',
                 help='specify the resolution of the image [options: full, \
                 regular, small, thumb][default: regular]')
+ap.add_argument('-oset', '--offset', default=0, type=int,
+                help = 'number of images to skip before downloading \
+                [default: 0]')
 
 # setting up command line usage
 if (sys.argv) == 1:
@@ -68,8 +72,14 @@ failCount = 0
 while glob.glob(os.path.sep.join([outputDir, f'{str(fname).zfill(8)}.*'])):
     fname += 1
 
-# page count starting from 1
-page = 1
+# initializing page count and offset count depending on the offset value
+# as unsplash fetches 20 images per page
+if args.offset < 20:
+    page = 1
+    offsetCount = args.offset
+else:
+    page = args.offset // 20 + 1
+    offsetCount = args.offset % 20
 
 # print if verbose option available
 if args.verbose:
@@ -150,6 +160,11 @@ while imageCounter > 0:
 
     # traversing over elements from the response to get the image source urls
     for images in imageData['results']:
+        # skip to adjust the offset count
+        if offsetCount > 0:
+            offsetCount -= 1
+            continue
+
         # generating filepath to save the image
         filePath = os.path.sep.join([outputDir,
                                      f'{str(fname).zfill(8)}.jpeg'])
