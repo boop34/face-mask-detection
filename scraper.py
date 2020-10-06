@@ -4,6 +4,7 @@ import requests
 import argparse
 import glob
 import os
+import sys
 
 # some colors to make the output pretty
 HEADER = '\033[95m'
@@ -19,17 +20,28 @@ UNDERLINE = '\033[4m'
 ap = argparse.ArgumentParser(description='Scraping images from unsplash.com')
 ap.add_argument('-q', '--query', required=True,
                 help='query to search images from unsplash.com')
-ap.add_argument('-ic', '--imageCount', default=50, type=int,
+ap.add_argument('-ic', '--imgCount', default=50, type=int,
                 help='maximum number of images to be downloaded[default: 50]')
 ap.add_argument('-o', '--output', default=os.getcwd(),
                 help='path to store the downloaded images')
+ap.add_argument('-v', '--verbose', help='get a more verbos output',
+               action='store_true')
+ap.add_argument('-res', '--resolution', default='regular',
+                help='specify the resolution of the image [options: full, \
+                regular, small, thumb][default: regular]')
+
+# setting up command line usage
+if (sys.argv) == 1:
+    ap.print_help(sys.stderr)
+    sys.exit(1)
+
 args = ap.parse_args()
 
 # the query keyword
 keyword = '%20'.join(args.query.split())
 
 # number of images to be fetched
-imageCounter = args.imageCount
+imageCounter = args.imgCount
 
 # base url for the searches
 url = \
@@ -55,8 +67,9 @@ while glob.glob(os.path.sep.join([outputDir, f'{str(fname).zfill(8)}.*'])):
 # page count starting from 1
 page = 1
 
-print(f'{HEADER}[INFO] Searching unsplash for "{args.query}"...{ENDC}')
-print()
+# print if verbose option available
+if args.verbose:
+    print(f'{HEADER}[INFO] Searching unsplash for "{args.query}"...{ENDC}')
 
 while imageCounter > 0:
     # generating url
@@ -71,15 +84,18 @@ while imageCounter > 0:
         # generating filepath to save the image
         filePath = os.path.sep.join([outputDir,
                                      f'{str(fname).zfill(8)}.jpeg'])
-        # debug information
-        print(f"{OKBLUE}[INFO] fetching {images['urls']['regular']}{ENDC}")
+        # debug information print if verbose option given
+        imageUrl = images['urls'][args.resolution]
+        if args.verbose:
+            print(f"{OKBLUE}[INFO] fetching {imageUrl}{ENDC}")
         try:
-            response = requests.get(images['urls']['regular'], timeout=30)
-
-            # saving the image to the determined filename
-            print(f'{OKGREEN}[INFO] saving image to {filePath}{ENDC}')
+            response = requests.get(imageUrl, timeout=30)
             with open(filePath, 'wb') as f:
                 f.write(response.content)
+
+            # saved the image to the determined filename if verbose on
+            if args.verbose:
+                print(f'{OKGREEN}[INFO] saving image to {filePath}{ENDC}')
         except Exception as e:
             # check if a timeout has occured
             if isinstance(e, requests.exceptions.Timeout):
@@ -103,4 +119,6 @@ while imageCounter > 0:
 
     page += 1
 
-print(f'{HEADER}[INFO] finished downloading {args.imageCount} images{ENDC}')
+# print if verbose option availabl
+if args.verbose:
+    print(f'{HEADER}[INFO] finished downloading {args.imgCount} images{ENDC}')
