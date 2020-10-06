@@ -119,10 +119,14 @@ def printDebugInfo(dataList, **kwargs):
     the image is being saved
     '''
     for idx, (imageUrl, filePath) in enumerate(dataList):
+        # printing the fetching information
         if kwargs['mode'] == 'fetch':
             print(f"{OKBLUE}[INFO] fetching {imageUrl}{ENDC}")
+        # printing the file info where the image was saved
+        # also checing if the image save was successful
         elif kwargs['mode'] == 'save' and kwargs['err'][idx]:
             print(f'{OKGREEN}[INFO] saving image to {filePath}{ENDC}')
+        # function not used correctly
         else:
             raise Exception('Use correct parameters')
             # Unsuccessfull
