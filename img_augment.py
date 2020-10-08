@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from PIL import Image
+import numpy as np
 import argparse
 import glob
 import sys
@@ -55,7 +58,7 @@ if not args.all:
     imageList = args.img.split()
 
 # function to augment a given image
-def augmentImage(ifile, outDir, c):
+def augmentImage(ifile, outDir, c, v):
     '''
     Given a image file name and directory it augments the images for specified
     number of times and saves the resultant augmented images in the given
@@ -64,52 +67,80 @@ def augmentImage(ifile, outDir, c):
     # extract the file name and extension
     fname, ext = os.path.basename(ifile).rsplit('.')
     # creating file to generate correct output incase of error
-    iname = fname + '.' + ext
+    iname = f'{fname}.{ext}'
     # check if the image is of valid image format
     if ext not in ['jpeg', 'jpg', 'png']:
         print(f'{WARNING}[ERROR] {iname} is not a recognized image file\
               {ENDC}', file=sys.stderr)
+        # unsuccessful attempt
         return 1
     # check if the file exists or not
     elif not os.path.exists(ifile):
         print(f'{WARNING}[ERROR] {iname} not found in the specified directory\
               {ENDC}', file=sys.stderr)
+        # unsuccessful attempt
         return 1
     # if all the previous check passes then augment the image and save it
     else:
-        # expand the image for the model to work with
-        # TODO: open the image file, augment the image
+        # open image
+        img = Image.open(ifile)
+        # make the image a numpy array to do computation
+        iarr = np.array(img, dtype='uint8')
+        # expand dimension to process it
+        iarr = np.expand_dims(iarr, 0)
+        # initialize the data augmentor
+        imageAugmentation = ImageDataGenerator(rotation_range=35,
+                                              horizontal_flip=True,
+                                              vertical_flip=True,
+                                              zoom_range=0.3,
+                                              fill_mode='nearest')
+        # prepare the iterator
+        it = imageAugmentation.flow(iarr, batch_size=1)
         # augment for specified number of times
         for i in range(c):
             # generate new file name to save the image
             newFname = f'{fname}_augmented_{i+1}.{ext}'
             newFullPath = os.path.sep.join([outDir, newFname])
-            # augment the image randomly
-            # augImg = imageAugmentation(expImg)
-            # TODO: save the augmented image file
-            print(f'{OKGREEN}[INFO] saving {newFullPath}{ENDC}')
+            # get the data from the returned tuple of ImageDataGenerator
+            data = it.next()[0]
+            # convert data to unit8 to make it an image
+            augImg = data.astype('uint8')
+            # create an Image object from the array
+            saveImg = Image.fromarray(augImg)
+            # print debug info
+            if v:
+                print(f'{OKGREEN}[INFO] saving {newFullPath}{ENDC}')
+            saveImg.save(newFullPath)
 
+        # successful attempt
+        return 0
 
+# for all the images
 if args.all:
+    # for jpeg images
     for img in glob.glob(os.path.sep.join([imgDir, '*.jpeg'])):
         if args.verbose:
             print(f'{OKBLUE}[INFO] augmenting {img} {args.count} times...\
                   {ENDC}')
-        augmentImage(img, outDir, args.count)
+        augmentImage(img, outDir, args.count,args.verbose)
+    # for jpg images
     for img in glob.glob(os.path.sep.join([imgDir, '*.jpg'])):
         if args.verbose:
             print(f'{OKBLUE}[INFO] augmenting {img} {args.count} times...\
                   {ENDC}')
-        augmentImage(img, outDir, args.count)
+        augmentImage(img, outDir, args.count,args.verbose)
+    # for png images
     for img in glob.glob(os.path.sep.join([imgDir, '*.png'])):
         if args.verbose:
             print(f'{OKBLUE}[INFO] augmenting {img} {args.count} times...\
                   {ENDC}')
-        augmentImage(img, outDir, args.count)
+        augmentImage(img, outDir, args.count,args.verbose)
+# for specific images
 else:
     for img in imageList:
-        tempImg = os.path.sep.join([imgDir, img])
+        # making the full path string
+        imgPath = os.path.sep.join([imgDir, img])
         if args.verbose:
             print(f'{OKBLUE}[INFO] augmenting {img} {args.count} times...\
                   {ENDC}')
-        augmentImage(tempImg, outDir, args.count)
+        augmentImage(imgPath, outDir, args.count,args.verbose)
