@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
+from ResNet50 import ResNet50
 import numpy as np
 import glob
 import sys
@@ -76,19 +76,19 @@ class CustomDataGen(Sequence):
             try:
                 # load the image
                 print(f'{OKBLUE}loading up {iFile}{ENDC}')
-                iarr = load_img(iPath, target_size=(224, 224))
+                iarr = load_img(iFile, target_size=(224, 224))
                 # convert it to numpy array
                 iarr = img_to_array(iarr)
                 # preprocess the input
-                print(f'{OKBLUE}preprocessing {img} to add it to the data\
+                print(f'{OKBLUE}preprocessing {iFile} to add it to the data\
                       {ENDC}')
                 iarr = iarr/255.0
                 iarr = np.expand_dims(iarr, axis=0)
-                print(f'{OKGREEN}{img} was sucessfully added to the data\
+                print(f'{OKGREEN}{iFile} was sucessfully added to the data\
                       {ENDC}')
             # handling exception
             except Exception as e:
-                print(f'{FAIL}could not load or process {img}{ENDC}')
+                print(f'{FAIL}could not load or process {iFile}{ENDC}')
                 if e == ImportError:
                     print(f'{WARNING}check if the PIL module is installed\
                           {ENDC}')
@@ -131,3 +131,20 @@ for srcDir in [trainDir, valDir]:
             elif srcDir == valDir:
                 valList.append(filePath)
     print(f'{OKGREEN}[INFO] sucessfully loaded {srcDir} names...{ENDC}')
+
+# set up the ResNet50 model
+model = ResNet50(input_shape=(224, 224, 3), classes=3)
+
+# compile the model
+model.compile(optimizer='adam', loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+# prepare the training and validation generators
+trainGen = CustomDataGen(trainList, labels=categories, batch_size=32,
+                         n_classes=3, dim=(224, 224, 3), shuffle=True)
+valGen = CustomDataGen(valList, labels=categories, batch_size=32,
+                         n_classes=3, dim=(224, 224, 3), shuffle=True)
+
+# train the model on the dataset
+model.fit(trainGen, verbose=2, epochs=2, validation_data=valGen,
+          use_multiprocessing=True, workers=4)
