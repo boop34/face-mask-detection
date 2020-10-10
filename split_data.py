@@ -106,6 +106,8 @@ for label in os.listdir(sourceDir):
 
     # list all the file names
     dataList = glob.glob(os.path.sep.join([labelDir, '*']))
+    # set the seed to reproduce the results
+    np.random.seed(2020)
     # shuffle the list to get a more uniform distribution
     np.random.shuffle(dataList)
 
