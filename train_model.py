@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.utils import Sequence
+import matplotlib.pyplot as plt
 from ResNet50 import ResNet50
 import numpy as np
 import glob
@@ -31,7 +33,7 @@ categories = ['cwm', 'iwm', 'nwm']
 
 class CustomDataGen(Sequence):
     # initialization
-    def __init__(self, imageFiles, labels,  batch_size=32,
+    def __init__(self, imageFiles, labels, batch_size=32,
                  dim=(224, 224, 3), n_classes=3, shuffle=True):
         self.imgFiles = imageFiles
         self.labels = labels
@@ -47,7 +49,7 @@ class CustomDataGen(Sequence):
 
     def __getitem__(self, index):
         # generate one batch of data
-        indexes = self.indexes[index * self.batch_size: \
+        indexes = self.indexes[index * self.batch_size:
                                (index + 1) * self.batch_size]
 
         # get the image files
@@ -75,25 +77,27 @@ class CustomDataGen(Sequence):
             # store the data
             try:
                 # load the image
-                print(f'{OKBLUE}loading up {iFile}{ENDC}')
+                # print(f'{OKBLUE}loading up {iFile}{ENDC}')
                 iarr = load_img(iFile, target_size=(224, 224))
                 # convert it to numpy array
                 iarr = img_to_array(iarr)
                 # preprocess the input
-                print(f'{OKBLUE}preprocessing {iFile} to add it to the data\
-                      {ENDC}')
-                iarr = iarr/255.0
+                # print(f'{OKBLUE}preprocessing {iFile} to add it to the data\
+                # {ENDC}')
+                iarr = iarr / 255.0
                 iarr = np.expand_dims(iarr, axis=0)
-                print(f'{OKGREEN}{iFile} was sucessfully added to the data\
-                      {ENDC}')
+                # print(f'{OKGREEN}{iFile} was sucessfully added to the data\
+                # {ENDC}')
             # handling exception
+            except ImportError:
+                print(f'{WARNING}check if the PIL module is installed\
+                        {ENDC}', file=sys.stderr)
             except Exception as e:
-                print(f'{FAIL}could not load or process {iFile}{ENDC}')
-                if e == ImportError:
-                    print(f'{WARNING}check if the PIL module is installed\
-                          {ENDC}')
+                print(e)
+                print(f'{FAIL}could not load or process {iFile}{ENDC}',
+                      file=sys.stderr)
             # store data
-            X[i,] = iarr
+            X[i, ] = iarr
 
             # store label
             # iFile -> /home/user/face mask detection/dataset/train/cwm/img
@@ -104,9 +108,10 @@ class CustomDataGen(Sequence):
             y[i] = self.labels.index(label)
 
         # one hot encode the labels
-        y = np.eye(self.n_classes)[y.reshape(-1)].T
+        y = np.eye(self.n_classes)[y.reshape(-1)]
         # return the generated data
         return X, y
+
 
 # initialize the train and validation directories
 trainDir = os.path.sep.join([dataDir, 'train'])
@@ -140,11 +145,57 @@ model.compile(optimizer='adam', loss='categorical_crossentropy',
               metrics=['accuracy'])
 
 # prepare the training and validation generators
-trainGen = CustomDataGen(trainList, labels=categories, batch_size=32,
+trainGen = CustomDataGen(trainList, labels=categories, batch_size=24,
                          n_classes=3, dim=(224, 224, 3), shuffle=True)
 valGen = CustomDataGen(valList, labels=categories, batch_size=32,
-                         n_classes=3, dim=(224, 224, 3), shuffle=True)
+                       n_classes=3, dim=(224, 224, 3), shuffle=True)
+
+# set up the checkpoint to save model weights during training
+cp_callback = ModelCheckpoint(filepath='model/cp.ckpt', save_weights_only=True,
+                              verbose=1)
 
 # train the model on the dataset
-model.fit(trainGen, verbose=2, epochs=2, validation_data=valGen,
-          use_multiprocessing=True, workers=4)
+# set the epoch
+epochs = 2
+history = model.fit(trainGen, verbose=1, epochs=epochs, validation_data=valGen,
+                    callbacks=[cp_callback])
+
+# saving the trained model
+print(f'{OKGREEN}[INFO] saving the trained model...{ENDC}')
+model.save('model.h5')
+
+# ploting the loss vs accuracy graph
+# get the accuracy data
+acc = history.history['accuracy']
+val_acc = history.history['val_accuracy']
+
+# get the loss data
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+
+# initialize number of epochs
+epochs_range = range(epochs)
+
+# plot the loss graph
+plt.figure()
+plt.plot(epochs_range, loss, label='Training Loss')
+plt.plot(epochs_range, val_loss, label="Validation Loss")
+plt.title("Training and Validation Loss")
+plt.legend(loc='upper right')
+plt.xlabel('Epoch Number')
+plt.ylabel('Loss')
+# save the graph
+print(f'{OKBLUE}[INFO] saving the training and validation loss graph{ENDC}')
+plt.savefig('loss.png')
+
+# plot the accuracy graph
+plt.figure()
+plt.plot(epochs_range, acc, label='Training Accuracy')
+plt.plot(epochs_range, val_acc, label="Validation Accuracy")
+plt.title("Training and Validation Accuracy")
+plt.legend(loc='lower right')
+plt.xlabel('Epoch Number')
+plt.ylabel('Accuracy')
+# save the graph
+print(f'{OKBLUE}[INFO] saving the training and validation accuracy graph{ENDC}')
+plt.savefig('accuracy.png')
