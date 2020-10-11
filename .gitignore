@@ -1,0 +1,6 @@
+download/
+data/
+dataset/
+__pycache__/
+*.swp
+.ipynb_checkpoints
