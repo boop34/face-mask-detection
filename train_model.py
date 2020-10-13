@@ -3,6 +3,7 @@
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.utils import Sequence
+from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
 from ResNet50 import ResNet50
 import numpy as np
@@ -116,26 +117,31 @@ class CustomDataGen(Sequence):
 # initialize the train and validation directories
 trainDir = os.path.sep.join([dataDir, 'train'])
 valDir = os.path.sep.join([dataDir, 'val'])
+testDir = os.path.sep.join([dataDir, 'test'])
 
 # initialize train and validation file names
 trainList = []
 valList = []
+testList = []
 
-# load up the train and validation data
-for srcDir in [trainDir, valDir]:
-    print(f'{OKGREEN}[INFO] loading up {srcDir} names...{ENDC}')
-    # look in each directory
-    for d in os.listdir(srcDir):
+
+def loadNames(dirPath, nameList):
+    print(f'{OKGREEN}[INFO] loading up {dirPath} names...{ENDC}')
+    # look in the directory
+    for d in os.listdir(dirPath):
         # set up the directory path for classes
-        classDir = os.path.sep.join([trainDir, d])
+        classDir = os.path.sep.join([dirPath, d, '*'])
         # add the files into train file names list
-        for filePath in glob.glob(os.path.sep.join([classDir, '*'])):
+        for filePath in glob.glob(classDir):
             print(f'{OKBLUE}[INFO] storing {filePath}..{ENDC}')
-            if srcDir == trainDir:
-                trainList.append(filePath)
-            elif srcDir == valDir:
-                valList.append(filePath)
-    print(f'{OKGREEN}[INFO] sucessfully loaded {srcDir} names...{ENDC}')
+            nameList.append(filePath)
+    print(f'{OKGREEN}[INFO] sucessfully loaded {dirPath} names...{ENDC}')
+
+
+# populate the lists with appropriate file names
+loadNames(trainDir, trainList)
+loadNames(valDir, valList)
+loadNames(testDir, testList)
 
 # set up the ResNet50 model
 model = ResNet50(input_shape=(224, 224, 3), classes=3)
@@ -145,9 +151,9 @@ model.compile(optimizer='adam', loss='categorical_crossentropy',
               metrics=['accuracy'])
 
 # prepare the training and validation generators
-trainGen = CustomDataGen(trainList, labels=categories, batch_size=24,
+trainGen = CustomDataGen(trainList, labels=categories, batch_size=16,
                          n_classes=3, dim=(224, 224, 3), shuffle=True)
-valGen = CustomDataGen(valList, labels=categories, batch_size=32,
+valGen = CustomDataGen(valList, labels=categories, batch_size=16,
                        n_classes=3, dim=(224, 224, 3), shuffle=True)
 
 # set up the checkpoint to save model weights during training
@@ -156,13 +162,23 @@ cp_callback = ModelCheckpoint(filepath='model/cp.ckpt', save_weights_only=True,
 
 # train the model on the dataset
 # set the epoch
-epochs = 2
+epochs = 10
 history = model.fit(trainGen, verbose=1, epochs=epochs, validation_data=valGen,
                     callbacks=[cp_callback])
 
 # saving the trained model
 print(f'{OKGREEN}[INFO] saving the trained model...{ENDC}')
 model.save('model.h5')
+
+# prepare the test data generator
+testGen = CustomDataGen(testList, labels=categories, batch_size=16,
+                        n_classes=3, dim=(224, 224, 3), shuffle=True)
+
+# evaluate the model over test set
+result = model.evaluate(testGen)
+# print the loss and accuracy info to the screen
+print(f'{OKGREEN} [INFO] test loss: {result[0]}{ENDC}')
+print(f'{OKGREEN} [INFO] test accuracy: {result[1]}{ENDC}')
 
 # ploting the loss vs accuracy graph
 # get the accuracy data
@@ -187,6 +203,7 @@ plt.ylabel('Loss')
 # save the graph
 print(f'{OKBLUE}[INFO] saving the training and validation loss graph{ENDC}')
 plt.savefig('loss.png')
+
 
 # plot the accuracy graph
 plt.figure()
