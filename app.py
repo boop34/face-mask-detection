@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.models import load_model
 from flask import Flask, jsonify, request
 import numpy as np
 import base64
@@ -9,8 +11,14 @@ import cv2
 app = Flask(__name__)
 
 # set up the face detector model
-fmodel = cv2.dnn.readNetFromDarknet('../model-weights/yolov3-face.cfg',
-                              '../model-weights/yolov3-wider_16000.weights')
+fmodel = cv2.dnn.readNetFromDarknet('model-weights/yolov3-face.cfg',
+                              'model-weights/yolov3-wider_16000.weights')
+
+# set up the mask detector model
+model = load_model('model.h5')
+
+# define the labels
+labels = ['cwm', 'iwm', 'nwm']
 
 # set up a few helper function
 def get_outputs_names(net):
@@ -58,6 +66,28 @@ def post_process(frame, outs, conf_threshold, nms_threshold):
         final_boxes.append(box)
     return final_boxes
 
+def refined_box(left, top, width, height):
+    right = left + width
+    bottom = top + height
+
+    original_vert_height = bottom - top
+    top = int(top + original_vert_height * 0.15)
+    bottom = int(bottom - original_vert_height * 0.05)
+
+    margin = ((bottom - top) - (right - left)) // 2
+    left = left - margin if (bottom - top - right + left) % 2 == 0 \
+           else left - margin - 1
+
+    right = right + margin
+
+    return left, top, right, bottom
+
+def post_process_image(img):
+    img = img_to_array(img)
+    img = img / 255.0
+    img = np.expand_dims(img, axis=0)
+    return img
+
 @app.route('/detect', methods=['POST'])
 def getData():
     # retrive the information sent
@@ -82,13 +112,31 @@ def getData():
     faces = post_process(img, outs, 0.5, 0.4)
     # draw the rectangle(s)
     for (x, y, w, h) in faces:
-        img = cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
-    # encode the image into bytes
-    _, resB = cv2.imencode(f'.{ext}', img)
-    # encode the bytes into base64
-    resB = base64.b64encode(resB).decode('utf-8')
+        # get the left, top, right, bottom coordinates
+        left, top, right, bottom = refined_box(x, y, w, h)
+        # define some colors
+        colRed = (255, 0, 0)
+        colYellow = (0, 255, 255)
+        colGreen = (0, 255, 255)
+        colWhite = (255, 255, 255)
+        tempImg = img[top:bottom, left:right]
+        tempImg = cv2.resize(tempImg, (224, 224))
+        tempImg = post_process_image(tempImg)
+        prediction = model.predict(tempImg)
+        label = labels[np.argmax(prediction)]
+        conf = prediction[label]
+        text = f'{label}-{conf: .3f}%'
+        label_size, base_line = cv2.getTextSize(text,
+                                                cv2.FONT_HERSHEY_SIMPLEX,
+                                                0.5, 1)
+        img = cv2.rectangle(img, (left, top), (right, bottom), (255, 0, 0), 2)
+        top = max(top, label_size[1])
+        img = cv2.putText(img, text, (left, top - 4),cv2.FONT_HERSHEY_SIMPLEX,
+                          0.4, colWhite, 1)
+    # convert the image to show it via PIL on the client end
+    tempImg = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # setup the responce body
-    res = {'detected_faces': resB}
+    res = {'detected_faces': tempImg.tolist()}
     # return the response
     return jsonify(res), 200
 
