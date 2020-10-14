@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 import requests
 import base64
+import json
 import glob
 import sys
 import os
@@ -76,9 +77,10 @@ for imgPath in imageList:
 # prepare the payload
 if args.verbose:
     print(f'{OKGREEN}[INFO] preparing the payload{ENDC}')
-payload = {'imgB': imgData}
+payload = {'imgB': json.dumps(imgData)}
 
-print('sending the request')
+if args.verbose:
+    print(f'{OKBLUE}[INFO] sending the request{ENDC}')
 # make the POST request
 r = requests.post("http://127.0.0.1:5000/detect", data=payload)
 
@@ -89,7 +91,7 @@ res = r.json()
 for (imgList, fname, ext) in res['detected_faces']:
     nparr = np.array(imgList, dtype=np.uint8)
     imgToSave = Image.fromarray(nparr)
-    outFname = f'{fname}_detected_face(s).{ext}'
+    outFname = f'{fname}.{ext}'
     outPath = os.path.sep.join([outDir, outFname])
     if args.verbose:
         print(f'{OKBLUE}[INFO] saving the image with detected faces in {outPath}{ENDC}')

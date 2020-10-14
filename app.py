@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 
 from tensorflow.keras.preprocessing.image import img_to_array
-from tensorflow.keras.models import load_model
 from flask import Flask, jsonify, request
+from ResNet50 import ResNet50
 import tensorflow as tf
 import numpy as np
+import json
 import base64
 import cv2
+import os
 
-# supress the warnings
-tf.logging.set_verbosity(tf.logging.ERROR)
+# suppress the debuging info of tensorflow
+# https://stackoverflow.com/questions/35911252/disable-tensorflow-debugging-information
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
 
 # set up the application
 app = Flask(__name__)
@@ -19,13 +22,14 @@ fmodel = cv2.dnn.readNetFromDarknet('model-weights/yolov3-face.cfg',
                                     'model-weights/yolov3-wider_16000.weights')
 
 # set up the mask detector model
-model = load_model('model.h5')
+model = ResNet50(input_shape=(224, 224, 3), classes=3)
+# load the weights
+model.load_weights('model.h5')
 
 # define the labels
-labels = ['cwm', 'iwm', 'nwm']
+labels = ['CWM', 'IWM', 'NWM']
 
 # set up a few helper function
-
 
 def get_outputs_names(net):
     layers_names = net.getLayerNames()
@@ -130,11 +134,11 @@ def detect_faces(imgEnc):
         # define some colors
         colRed = (255, 0, 0)
         colYellow = (0, 255, 255)
-        colGreen = (0, 255, 255)
+        colGreen = (0, 255, 0)
         colWhite = (255, 255, 255)
 
         # extract the face from the image
-        tempImg = img[top:bottom, left:right]
+        tempImg = img[top: bottom, left: right]
         # resize it to 224x224 and process it to fit to the model
         tempImg = cv2.resize(tempImg, (224, 224))
         tempImg = post_process_image(tempImg)
@@ -142,47 +146,51 @@ def detect_faces(imgEnc):
         # get the prediction
         prediction = model.predict(tempImg)
         # determine the label
-        label = labels[np.argmax(prediction)]
+        labelVal = np.argmax(prediction)
+        label = labels[labelVal]
+        print(label)
         # get the confidence from the prediction
-        conf = prediction[label]
+        conf = prediction[0][labelVal]
 
         # set up the color accotding to the prediction
-        if label == 'cwm':
+        if labelVal == 0:
             col = colGreen
-        elif label == 'iwm':
+        elif labelVal == 1:
             col = colYellow
         else:
             col = colRed
 
         # form the text to draw
-        text = f'{label}-{conf: .3f}%'
+        text = f'{label} - {conf * 100: .2f}%'
         # set up the text
         label_size, base_line = cv2.getTextSize(text,
                                                 cv2.FONT_HERSHEY_SIMPLEX,
                                                 0.5, 1)
         # draw the rectangle
-        img = cv2.rectangle(img, (left, top), (right, bottom), col, 2)
-        top = max(top, label_size[1])
+        # img = cv2.rectangle(img, (left, top), (right, bottom), col, 2)
+        img = cv2.rectangle(img, (x, y), (x + w, y + h), col, 2)
+        top = max(y, label_size[1])
         # draw the text
-        img = cv2.putText(img, text, (left, top - 4), cv2.FONT_HERSHEY_SIMPLEX,
-                          0.4, colWhite, 1)
+        img = cv2.putText(img, text, (left, top-2), cv2.FONT_HERSHEY_SIMPLEX,
+                          0.5, colWhite, 2)
 
     # convert the image to show it via PIL on the client end
     tempImg = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # convert it to list to send to client and return it
-    return tempImg.tolist()
+    return (tempImg.tolist(), label, conf)
 
 
 @app.route('/detect', methods=['POST'])
 def getData():
     # get the list of images
-    imgList = request.form['imgB']
+    imgList = json.loads(request.form['imgB'])
 
     # set up the response list
     resList = []
-    for (imgEnc, fname, ext) in imgList:
-        resImg = detect_faces(imgEnc)
-        resList.append((resImg, fname, ext))
+    for imgEnc, fname, ext in imgList:
+        resImg, label, conf  = detect_faces(imgEnc)
+        oFname = f'{fname}_{label}_{conf * 100: .2f}'
+        resList.append((resImg, oFname, ext))
     # setup the responce body
     res = {'detected_faces': resList}
     # return the response
