@@ -25,8 +25,8 @@ ap.add_argument('-i', '--img', help='path to the image to be detected')
 ap.add_argument('-d', '--dir', help='path to the directory containing images')
 ap.add_argument('-o', '--out', default=os.getcwd(),
                 help='output directory or file path')
-ap.ad_argument('-v', '--verbose', action='store_true',
-               help='get a more verbose output')
+ap.add_argument('-v', '--verbose', action='store_true',
+                help='get a more verbose output')
 
 # add the usage information
 if sys.argv == 1:
@@ -58,9 +58,6 @@ if not args.dir:
     for idx, imgs in enumerate(imageList):
         imageList[idx] = os.path.sep.join([srcDir, imgs])
 
-# initialize the image path
-data = 'D://face-mask-detection/dataset/val/iwm/00007_Mask_Mouth_Chin.jpg'
-
 # initialize image data list
 imgData = []
 
@@ -70,10 +67,10 @@ for imgPath in imageList:
     with open(imgPath, 'rb') as f:
         # encode the image to send it to server
         if args.verbose:
-            print(f'{OKBLUE} encoding {imgPath}{ENDC}')
+            print(f'{OKBLUE}[INFO] encoding {imgPath}{ENDC}')
         img = base64.b64encode(f.read()).decode('utf-8')
     # get the file name and extension for later use
-    fname, ext = data.split(os.sep)[-1].rsplit('.')
+    fname, ext = imgPath.split(os.sep)[-1].rsplit('.')
     imgData.append((img, fname, ext))
 
 # prepare the payload

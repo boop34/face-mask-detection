@@ -3,9 +3,13 @@
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
 from flask import Flask, jsonify, request
+import tensorflow as tf
 import numpy as np
 import base64
 import cv2
+
+# supress the warnings
+tf.logging.set_verbosity(tf.logging.ERROR)
 
 # set up the application
 app = Flask(__name__)
