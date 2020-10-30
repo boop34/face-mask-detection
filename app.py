@@ -19,7 +19,7 @@ app = Flask(__name__)
 
 # set up the face detector model
 fmodel = cv2.dnn.readNetFromDarknet('model-weights/yolov3-face.cfg',
-                                    'model-weights/yolov3-wider_16000.weights')
+                                   'model-weights/yolov3-wider_16000.weights')
 
 # set up the mask detector model
 model = ResNet50(input_shape=(224, 224, 3), classes=3)
@@ -113,6 +113,8 @@ def detect_faces(imgEnc):
     nparr = np.frombuffer(imgStr, np.uint8)
     # turn the numpy array into image
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    # swap the red and blue color channel for the model to work
+    ip_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     # create a blob from the data
     blob = cv2.dnn.blobFromImage(image=img, scalefactor=1 / 255,
@@ -132,7 +134,7 @@ def detect_faces(imgEnc):
         left, top, right, bottom = refined_box(x, y, w, h)
 
         # define some colors
-        colRed = (255, 0, 0)
+        colRed = (0, 0, 255)
         colYellow = (0, 255, 255)
         colGreen = (0, 255, 0)
         colWhite = (255, 255, 255)
@@ -141,6 +143,9 @@ def detect_faces(imgEnc):
         tempImg = img[top: bottom, left: right]
         # resize it to 224x224 and process it to fit to the model
         tempImg = cv2.resize(tempImg, (224, 224))
+        # swap red and blue channels for model to work
+        tempImg = cv2.cvtColor(tempImg, cv2.COLOR_BGR2RGB)
+        # prepare the image to fit the model
         tempImg = post_process_image(tempImg)
 
         # get the prediction
@@ -148,7 +153,6 @@ def detect_faces(imgEnc):
         # determine the label
         labelVal = np.argmax(prediction)
         label = labels[labelVal]
-        print(label)
         # get the confidence from the prediction
         conf = prediction[0][labelVal]
 
