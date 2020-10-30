@@ -30,7 +30,6 @@ model.load_weights('model.h5')
 labels = ['CWM', 'IWM', 'NWM']
 
 # set up a few helper function
-
 def get_outputs_names(net):
     layers_names = net.getLayerNames()
     return [layers_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
@@ -113,8 +112,6 @@ def detect_faces(imgEnc):
     nparr = np.frombuffer(imgStr, np.uint8)
     # turn the numpy array into image
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    # swap the red and blue color channel for the model to work
-    ip_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     # create a blob from the data
     blob = cv2.dnn.blobFromImage(image=img, scalefactor=1 / 255,
@@ -192,7 +189,7 @@ def getData():
     # set up the response list
     resList = []
     for imgEnc, fname, ext in imgList:
-        resImg, label, conf  = detect_faces(imgEnc)
+        resImg, label, conf = detect_faces(imgEnc)
         oFname = f'{fname}_{label}_{conf * 100: .2f}'
         resList.append((resImg, oFname, ext))
     # setup the responce body
@@ -203,4 +200,4 @@ def getData():
 
 # run the app
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', debug=True)
