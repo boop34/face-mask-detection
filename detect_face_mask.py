@@ -82,7 +82,7 @@ payload = {'imgB': json.dumps(imgData)}
 if args.verbose:
     print(f'{OKBLUE}[INFO] sending the request{ENDC}')
 # make the POST request
-r = requests.post("http://127.0.0.1:5000/detect", data=payload)
+r = requests.post("http://0.0.0.0:5000/detect", data=payload)
 
 # get the data from response
 res = r.json()
