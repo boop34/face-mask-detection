@@ -180,7 +180,12 @@ def detect_faces(imgEnc):
     # convert it to list to send to client and return it
     return (tempImg.tolist(), label, conf)
 
+# check the server if it is running or not
+@app.route('/', methods=['GET'])
+def chech():
+    return 'server is up and running...', 200
 
+# to detect face masks
 @app.route('/detect', methods=['POST'])
 def getData():
     # get the list of images
