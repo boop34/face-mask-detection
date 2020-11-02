@@ -68,3 +68,4 @@ there are various other things that can be done with docker, check their [offici
 Input Image                             |Output Image
 :--------------------------------------:|:-------------------:
 ![alt text](./assets/sample.jpg "input")|![alt text](./assets/sample_CWM.jpg "output")
+![alt text](./assets/sample2.jpg "input")|![alt text](./assets/sample2_NWM.jpg "output")
