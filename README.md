@@ -10,6 +10,7 @@ All the necessary modules are listed in [`requirements.txt`](./requirements.txt)
 ```
 pip3 install -r requirements.txt
 ```
+**MAKE SURE YOUR CPU SUPPORTS AVX INSTRUCTIONS THAT TENSORFLOW 2.3.1 USES IF YOU WANT TO RUN IT ON CPU**
 ## Dataset
 The data was collected from various source
 * [scraper](./scraper.py)
@@ -18,7 +19,7 @@ The data was collected from various source
 
 ## ResNet50
 ResNet50 is a residual neural network that is 50 layers deep. For this specific project the [ResNet50](./ResNet50.py) has additional few layers along with a [dropout](https://en.wikipedia.org/wiki/Dilution_(neural_networks)) layer to address overfitting. The input of the network is of size `224x224x3` and output is a dense layer of dimension `3x1` to predict between **CWM**, **IWM** and **NWM**. The network has a total of `23,850,371` parameters, of which `23,797,251` are trainable and `53,120` are fixed or non-trainable.<br>
-The visual plot of the model architecture is shown [here](./ResNet50.png). 
+The visual plot of the model architecture is shown [here](./ResNet50.png).
 ![alt text](./assets/ResNet50Architecture.png "Original ResNet50 Architecture")
 **After runnig it for 10 epochs the model got 98% accuracy on the test data**
 ## Usage
@@ -48,6 +49,21 @@ or with `-h` or `--help` option
 ```
 ./detect_face_ask.py --help
 ```
+## Docker
+To build a docker image of the server run the following command
+```
+docker build -t face_mask_detection .
+```
+Now to make a container run the following command to access the server on the default flask port 5000
+```
+docker run -p 5000:5000 face_mask_detection
+```
+otherwise to acces it on different port or to create multiple containers (for example: port 80, 81 and so on), make the adjustments in the [`detect_face_mask.py`](./detect_face_mask.py) as needed
+```
+docker run -p 80:5000 face_mask_detection
+docker run -p 81:5000 face_mask_detection
+```
+there are various other things that can be done with docker, check their [official page](https://www.docker.com/) for more information.
 ## Example
 Input Image                             |Output Image
 :--------------------------------------:|:-------------------:
